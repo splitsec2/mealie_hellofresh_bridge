@@ -191,6 +191,23 @@ class Mealie(HttpResponder):
         )
 
 
+def load_exclusions(path):
+    """Recipe URLs to never import, one per line (# comments and blanks ignored).
+
+    Lets you delete a recipe you disliked from Mealie without it being
+    re-imported on the next run.
+    """
+    excluded = set()
+    if not path:
+        return excluded
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#"):
+                excluded.add(line)
+    return excluded
+
+
 def main():
     hellofresh_token = os.environ.get("hellofresh_token")
     if hellofresh_token == None:
@@ -251,6 +268,12 @@ def main():
         default=0,
     )
     argParser.add_argument(
+        "--exclude-file",
+        "-e",
+        help="File of recipe URLs to never import, one per line (# comments ok). Lets you delete a recipe from Mealie without it re-importing.",
+        default=None,
+    )
+    argParser.add_argument(
         "--debug", help="Enable debug logs", action="store_true"
     )
     argParser.add_argument(
@@ -279,10 +302,14 @@ def main():
     mealie_api_url = "https://food.syyrell.com"
     mealie_client = Mealie(mealie_api_url, mealie_token)
     mealie_client.get_tagged_recipes(args.mealie_tag)
-    if args.dry_run:
-        new_recipes = hellofresh_client.recipes - set(
-            mealie_client.tagged_recipes
+    excluded = load_exclusions(args.exclude_file)
+    if excluded:
+        logging.info(
+            f"{len(excluded)} recipe(s) from exclude file will be skipped"
         )
+    already_present = mealie_client.tagged_recipes | excluded
+    if args.dry_run:
+        new_recipes = hellofresh_client.recipes - already_present
         if len(new_recipes) > 0:
             logging.info(
                 f"Would have added {len(new_recipes)} recipes to Mealie:"
@@ -291,7 +318,7 @@ def main():
         else:
             logging.info("All fetched recipes already exist in Mealie!")
         exit(0)
-    new_recipes = hellofresh_client.recipes - mealie_client.tagged_recipes
+    new_recipes = hellofresh_client.recipes - already_present
     if not new_recipes:
         logging.info("All scrapped recipes already in Mealie, exiting.")
         exit(0)

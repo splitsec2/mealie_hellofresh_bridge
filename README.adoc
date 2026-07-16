@@ -46,4 +46,18 @@ options:
                         Number of additional months to retrieve from HelloFresh
   --debug               Enable debug logs
   --dry-run, -d         Just fetch and count recipes from HelloFresh that would be added to Mealie
+  --exclude-file EXCLUDE_FILE, -e EXCLUDE_FILE
+                        File of recipe URLs to never import, one per line
+----
+
+== Excluding recipes
+
+Dedupe is based on what's already tagged in Mealie, so if you delete a recipe
+you didn't like, the next run just re-imports it. To make a deletion stick,
+put its URL in a file and pass `--exclude-file`:
+
+[source,shell]
+----
+# excluded.txt  (one URL per line, # comments ok)
+python recipe_bridge.py -c ca -l en -u https://<mealie_server> --exclude-file excluded.txt
 ----
