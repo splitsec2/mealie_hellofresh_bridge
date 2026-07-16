@@ -47,3 +47,25 @@ options:
   --debug               Enable debug logs
   --dry-run, -d         Just fetch and count recipes from HelloFresh that would be added to Mealie
 ----
+
+== Bulk import by keyword (catalog_import.py)
+
+`recipe_bridge.py` imports your own orders. `catalog_import.py` reads
+HelloFresh's public recipe sitemap instead, so you can pull every recipe whose
+slug matches a keyword (e.g. all salmon recipes) without a HelloFresh token -
+only `MEALIE_TOKEN` is used.
+
+[source,shell]
+----
+export MEALIE_TOKEN="Bearer xxx"
+# preview
+python catalog_import.py --keyword salmon --mealie-url https://<mealie_server> --dry-run
+# import and tag, in batches of 50
+python catalog_import.py --keyword salmon --mealie-url https://<mealie_server> \
+    --tag Salmon --tag Pescatarian --limit 50
+----
+
+It dedupes by base slug (stripping the trailing id and any `?locale=` variant)
+against what's already in Mealie, so it's safe to re-run. `--country` picks
+which HelloFresh site's sitemap to read (default `ca`). Mealie holds memory per
+import, so for large keywords use `--limit` and restart Mealie between batches.
