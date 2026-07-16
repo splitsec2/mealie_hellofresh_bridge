@@ -22,16 +22,17 @@ Then, you only need to provide as arguments which country/language your HelloFre
 
 [source,shell]
 ----
-# No deps, any Python3.X should work
+# Needs requests (see requirements.txt); any Python 3.x
+pip install -r requirements.txt
 # Countries/languages list is given in the help below
-python recipe_bridge.py --country <country> --language <language>
+python recipe_bridge.py --country <country> --language <language> --mealie-url https://<mealie_server>
 ----
 
 Full explanation on the script usage is as follow:
 
 [source,shell]
 ----
-usage: recipe_bridge.py [-h] --country {at,ch,fr,lu,au,de,gb,nl,se,be,dk,ie,no,us,ca,es,it,nz} --language {de,fr,en,nl,sv,da,nb,es,it} [--mealie-tag MEALIE_TAG] [--additional-deliveries ADDITIONAL_DELIVERIES] [--debug]
+usage: recipe_bridge.py [-h] --country {at,ch,fr,lu,au,de,gb,nl,se,be,dk,ie,no,us,ca,es,it,nz} --language {de,fr,en,nl,sv,da,nb,es,it} --mealie-url MEALIE_URL [--mealie-tag MEALIE_TAG] [--additional-deliveries ADDITIONAL_DELIVERIES] [--debug]
                         [--dry-run]
 
 options:
@@ -40,6 +41,8 @@ options:
                         Country linked to your HelloFresh account
   --language {de,fr,en,nl,sv,da,nb,es,it}, -l {de,fr,en,nl,sv,da,nb,es,it}
                         Locale linked to your HelloFresh account
+  --mealie-url MEALIE_URL, -u MEALIE_URL
+                        Base URL of your Mealie instance, e.g. https://mealie.example.com
   --mealie-tag MEALIE_TAG, -t MEALIE_TAG
                         Mealie tag to group HelloFresh recipes (default: HelloFresh)
   --additional-deliveries ADDITIONAL_DELIVERIES, -a ADDITIONAL_DELIVERIES

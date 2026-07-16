@@ -54,7 +54,7 @@ class HelloFresh(HttpResponder):
         }
         self.params = {
             "country": country.upper(),
-            "locale": f"{country.lower()}-{language.upper()}",
+            "locale": f"{language.lower()}-{country.upper()}",
         }
 
     def set_customer_id(self) -> None:
@@ -75,13 +75,16 @@ class HelloFresh(HttpResponder):
         self.params["from"] = f"{today.year}-W{today.strftime('%V')}"
 
     def add_monthly_recipes(self, deliveries) -> None:
-        for weekly_delivery in deliveries["weeks"]:
-            meals = weekly_delivery["meals"]
-            for meal in meals:
-                logging.debug(
-                    f'Getting HelloFresh recipe URL: {meal["websiteURL"]}'
-                )
-                self.recipes.add(meal["websiteURL"])
+        # Skipped/paused weeks come back with meals=null (and some batches
+        # omit "weeks" entirely); guard every level rather than assume a
+        # fully-populated structure.
+        for weekly_delivery in deliveries.get("weeks") or []:
+            for meal in weekly_delivery.get("meals") or []:
+                url = meal.get("websiteURL")
+                if not url:
+                    continue
+                logging.debug(f"Getting HelloFresh recipe URL: {url}")
+                self.recipes.add(url)
 
     def get_past_deliveries(self, additional_deliveries) -> None:
         logging.debug("Getting last month deliveries")
@@ -143,12 +146,15 @@ class Mealie(HttpResponder):
 
     def get_tagged_recipes(self, tag) -> None:
         self.set_tag_id(tag)
+        # The `tags` filter expects a tag id; passing the whole tag object
+        # lets requests urlencode it into garbage and match nothing.
+        tag_id = self.tag["id"]
         # Retrieve recipes count to infer paging
         tagged_recipes_nb_res = self.json_request(
             url=f"{self.base_url}/api/recipes",
             method="get",
             headers=self.headers,
-            params={"tags": self.tag, "perPage": 0},
+            params={"tags": tag_id, "perPage": 0},
         )
         tagged_recipes_nb = tagged_recipes_nb_res["total"]
 
@@ -156,7 +162,7 @@ class Mealie(HttpResponder):
             url=f"{self.base_url}/api/recipes",
             method="get",
             headers=self.headers,
-            params={"tags": self.tag, "perPage": tagged_recipes_nb},
+            params={"tags": tag_id, "perPage": tagged_recipes_nb},
         )
         self.tagged_recipes = {
             recipe["orgURL"] for recipe in tagged_recipes_res["items"]
@@ -192,11 +198,11 @@ class Mealie(HttpResponder):
 
 
 def main():
-    hellofresh_token = os.environ.get("hellofresh_token")
+    hellofresh_token = os.environ.get("HELLOFRESH_TOKEN")
     if hellofresh_token == None:
         logging.error("Could not load required env var: HELLOFRESH_TOKEN")
         exit(1)
-    mealie_token = os.environ.get("mealie_token")
+    mealie_token = os.environ.get("MEALIE_TOKEN")
     if mealie_token == None:
         logging.error("Could not load required env var: MEALIE_TOKEN")
         exit(1)
@@ -238,6 +244,12 @@ def main():
         required=True,
     )
     argParser.add_argument(
+        "--mealie-url",
+        "-u",
+        help="Base URL of your Mealie instance, e.g. https://mealie.example.com",
+        required=True,
+    )
+    argParser.add_argument(
         "--mealie-tag",
         "-t",
         help="Mealie tag to group HelloFresh recipes (default: HelloFresh)",
@@ -276,7 +288,7 @@ def main():
         f"Scrapped {len(hellofresh_client.recipes)} HelloFresh recipes"
     )
 
-    mealie_api_url = "https://food.syyrell.com"
+    mealie_api_url = args.mealie_url.rstrip("/")
     mealie_client = Mealie(mealie_api_url, mealie_token)
     mealie_client.get_tagged_recipes(args.mealie_tag)
     if args.dry_run:
